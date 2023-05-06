@@ -1,0 +1,62 @@
+/*
+	ChromeDina开发日志
+	1.创建项目
+	2.导入素材
+	3.创建游戏页面
+
+		选择图形库“easyx”
+		1) 创建游戏窗口
+		2) 设计游戏背景
+			a. 三重背景不同速度同时相左移动
+			b. 通过重置实位置现循环滚动
+		3) 实现游戏背景
+			a. 加载游戏背景资源
+			b. 渲染资源
+			遇到问题：背景图片透明处出现黑色或者白色
+			解决办法：第三方工具tool.h tool.cpp
+					  换用输出图片的函数
+	4. 实现恐龙奔跑
+	5. 实现恐龙跳跃
+
+		发现问题：`Sleep(30)` 并不是一个好的帧等待方法
+		解决办法：运用`getDelay`代替`Sleep(30)` 来获取
+				  和上一次while运行的时间间隔，30ms后
+				  允许刷新。
+
+		遇到bug ：需要按两次空格才可以实现跳跃
+			a. 原因：代码顺序问题
+			b. 解决办法：`ScreRefresh`函数中//恐龙跳跃部分
+			   修改为：
+			   if (DinoY < JumMAXHight)...
+			   DinoY += JumpOffset;
+			   if (DinoY > WIN_HIGHT - DinoRun[0].getheight() - 10)...
+			   而不是：
+			   if (DinoY < JumMAXHight)...
+			   if (DinoY > WIN_HIGHT - DinoRun[0].getheight() - 10)...
+			   DinoY += JumpOffset;
+	6.　实现障碍物的生成 && 随机显示
+
+		遇到bug ：第一个障碍物直接出现在屏幕左下方
+			a. 原因：bug又消失了
+			b. 解决办法：
+
+		遇到bug ：Debug Assertion Failed!
+			a. 原因：代码`obstacleImages[obstacles[i].type][0].getheight()` 引发
+			b. 解决办法：为`obstacleImages[obstacles[i].type][0]` 加上括号 ()
+
+		遇到问题：长按空格会加快背景和恐龙的移动速度
+
+	7. 使用障碍物结构体后重新初始化
+
+	8. 实现恐龙下蹲
+
+		遇到bug ：进入下蹲后无法跳出到正常跑动状态，但是ScreenRefresh()中是有设置
+				  `SquatState`的。
+			a. 原因：	ScreenRefresh()中在`count >= 12`条件判断中用了`else if`导
+						致执行了正常跑动的`else`分支。
+						因为此时`SquatState = true`,即使执行“//默认跑动状态”代码
+						刷新方法仍会进行`DinoIndex = (DinoIndex + 1) % 2;`计算；并
+						且无法重置`SquatState`
+
+			b. 解决办法：弃用`else if`，使用`if`新起一个判断。
+ */
