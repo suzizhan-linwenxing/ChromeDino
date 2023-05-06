@@ -1,7 +1,7 @@
 #include<stdio.h>
 #include<graphics.h>
 #include<conio.h>
-#include<vector>	//容器加快编译速度
+#include<vector>	//Speed up compilation
 #include<stdbool.h>
 #include <ctime>
 #include<mmstream.h>
@@ -9,103 +9,97 @@
 #pragma comment(lib, "winmm.lib")
 using namespace std;
 
-#define WIN_WIDTH 576			//游戏窗口宽
-#define WIN_HIGHT 324			//游戏窗口长
-#define OBSTACLE_COUNT 10		//障碍物种类
+#define WIN_WIDTH 576			//Game window width
+#define WIN_HIGHT 324			//Game window length
+#define OBSTACLE_COUNT 10		//Type of obstacle
 
-IMAGE imgBgs[4];				//全局背景图片
-int bgX[4];						//背景x方向坐标
-int bgSpeed[3] = { 1, 2, 4};	//背景移动速度
 bool gameState;
+IMAGE imgBgs[4];				//Global background image
+int bgX[4];						//Background x coordinates
+int bgSpeed[3] = { 1, 2, 4};	//Background velocity
 
-typedef struct {		//特殊状态结构体
+
+typedef struct {		//Dinos' Special state
 	bool Run;
 	bool Jump;
 	bool Squat;
 }DinoState;
 
-int DinoX;				//恐龙 x 坐标
-int DinoY;				//恐龙 y 坐标
-int DinoIndex;			//动图序号(不限于run
-bool ReFrash;			//刷新画面使能
+int DinoX;				//Dinosaur x coordinate
+int DinoY;				//Dinosaur y coordinate
+int DinoIndex;			//Image sequence number (not limited to run
+bool ReFrash;			//screen refresh function is enabled
 int DinoBlood;
 int Score;
 
-IMAGE imgDinoRun[2];	//恐龙跑动素材
-bool RunState;			//恐龙跑动状态
+IMAGE imgDinoRun[2];	//run material
+bool RunState;			//running state
 
-IMAGE imgDinoJump;		//跳跃单图
-bool JumpState;			//跳跃状态
-int JumMAXHight;		//高度限制
-int JumpOffset;			//偏移量
+IMAGE imgDinoJump;		//Jump imge
+bool JumpState;			//Jumping state
+int JumMAXHight;		//Height restriction
+int JumpOffset;			//offset
 
-bool SquatState;		//下蹲状态
-IMAGE imgDinoSquat[2];	//下蹲图片
-
-//********************被优化部分*********************
-//IMAGE imgBarrier[3];//障碍物
-//int BarriX;		//障碍物水平坐标
-//int BarriY;		//障碍物垂直坐标
-//bool BarrierExi;//障碍物存在
-//***************************************************
+IMAGE imgDinoSquat[2];	//Squat imge
+bool SquatState;		//squat state
 
 typedef enum {
 	LargeCactus,	//大仙人掌1~3
 	SmallCactus,	//小仙人掌1~3
 	Bird,			//鸟
 	OBSTACLE_TYPE_COUNT
-}obstacle_type;		//障碍物种类
+}obstacle_type;		//Type of obstacle
 
-//IMAGE obstacleImg[3][10];//分类调用，部分节省内存
-//但是还不够，可变数组更加节省,存放所有的障碍物图片
-vector<vector<IMAGE>>obstacleImages;
 
+vector<vector<IMAGE>>obstacleImages;//two-dimensional mutable array to store obstacles
+
+//Obstacle attribute
 typedef struct obstacle{
 	obstacle_type type;
-	int ObstacleIndex;	//当前显示图片的序号 
+	int ObstacleIndex;	//Obstacle picture number
 	int x, y;			//location
 	int speed;
 	int Direct_Damage;
 	int FreshSpeed;
 	bool exist;
-	bool hited;			//碰撞state	
-	//IMAGE img[10];	//这样一个障碍物都得加载一次所有素材，浪费内存
+	bool hited;			//hit state	
 }obstacle_t;
-obstacle_t obstacles[OBSTACLE_COUNT];
+obstacle_t obstacles[OBSTACLE_COUNT]; 
 
+
+//called by main(): Initial load
 void init() {
-	//************************** 建游戏窗口 *****************************
-	initgraph(WIN_WIDTH, WIN_HIGHT, EX_SHOWCONSOLE);	//Pere'3th用于调试
+	//Build game window
+	initgraph(WIN_WIDTH, WIN_HIGHT, EX_SHOWCONSOLE);
 	gameState = true;
 
-	//*********************** 加载游戏背景资源 ***************************
+	//Load game background resources
 	char name[64];
 	for (int i = 0; i < 4; i++){
 		sprintf(name, "res/bg%03d.png", i + 1);
 		loadimage(&imgBgs[i], name);
 		bgX[i] = 0;
 	}
-	//*********************** 加载恐龙素材--跑动 **************************
+	//Loading Dinosaur material - Run
 	for (int i = 0; i < 2; i++){
-		//"res/DinoRun1.png~res/DinoRun2.png"
 		sprintf(name, "res/DinoRun%01d.png", i + 1);
 		loadimage(&imgDinoRun[i], name);
 	}
-	//*********************** 加载恐龙素材--跳跃 **************************
+	//Loading Dinosaur material - Jump
 	loadimage(&imgDinoJump, "res/DinoJump.png");
 	JumMAXHight = WIN_HIGHT - imgDinoRun[0].getheight() - 10 - 100;
 	JumpOffset = -6;
 
-	//*********************** 加载恐龙素材--下蹲 **************************
+	//Loading Dinosaur material - Squat
 	loadimage(&imgDinoSquat[0], "res/DinoSquat1.png");
 	loadimage(&imgDinoSquat[1], "res/DinoSquat2.png");
 	
-	//************************ 恐龙初始位置参数 ***************************
+	//Dinosaur initial position parameters
 	DinoX = WIN_WIDTH / 2 - imgDinoRun[0].getwidth() / 2;
 	DinoY = WIN_HIGHT     - imgDinoRun[0].getheight() - 5;
 	DinoIndex = 0;
 
-	//************************* 初始化恐龙状态 ****************************
+	//Initialize the dinosaur state
 	DinoBlood = 100;
 
 	DinoState dinoState;
@@ -114,21 +108,7 @@ void init() {
 	JumpState = dinoState.Jump;	
 	SquatState = dinoState.Squat;
 
-
-	/* 被优化部分
-	//for (int i = 0; i < 3; i++) {	//加载障碍物barrier素材
-	//	//"res/SmallCactus1.png~res/SmallCactus3.png"
-	//	sprintf(name, "res/SmallCactus%01d.png", i + 1);
-	//	loadimage(&imgBarrier[i], name);
-	//}
-	////设置障碍物
-	//BarrierExi = false;
-	//BarriX = WIN_WIDTH *2 ;
-	//BarriY = 240 ;
-	*/
-
-	//*************************** 加载障碍物 *****************************
-	//1.加载小仙人掌
+	//1.Load obstacles - Small cactus
 	vector<IMAGE> imgSmallCactusArrary;
 	IMAGE imgCactus;
 	for (int i = 0; i < 3; i++) {
@@ -136,14 +116,14 @@ void init() {
 		loadimage(&imgCactus, name);
 		imgSmallCactusArrary.push_back(imgCactus);
 	}
-	//2.加载大仙人掌
+	//2.Load obstacles - Big cactus
 	vector<IMAGE> imgLargeCactusArrary;
 	for (int i = 0; i < 3; i++) {
 		sprintf(name, "res/LargeCactus%01d.png", i + 1);
 		loadimage(&imgCactus, name);
 		imgLargeCactusArrary.push_back(imgCactus);
 	}
-	//3.加载鸟
+	//3.Load obstacles - bird
 	vector<IMAGE> imgBirdArrary;
 	IMAGE imgBird;
 	for (int i = 0; i < 2; i++) {
@@ -151,48 +131,56 @@ void init() {
 		loadimage(&imgBird, name);
 		imgBirdArrary.push_back(imgBird);
 	}
-	//4.装载所有类型的障碍物
-	obstacleImages.push_back(imgSmallCactusArrary);	//小仙人掌
-	obstacleImages.push_back(imgLargeCactusArrary);	//大仙人掌
-	obstacleImages.push_back(imgBirdArrary);			//鸟
-	//5.初始化障碍物池
+	//4.Load all types of obstructions
+	obstacleImages.push_back(imgSmallCactusArrary);
+	obstacleImages.push_back(imgLargeCactusArrary);
+	obstacleImages.push_back(imgBirdArrary);
+
+	//5.Example Initialize the obstacle pool
 	for (int i = 0; i < OBSTACLE_COUNT; i++){
 		obstacles[i].exist = false;
 	}
-	//6.障碍物"运动的"刷新速率
-	obstacles[0].FreshSpeed = 30;//SmallCactus
-	obstacles[1].FreshSpeed = 30;//LargeCactus
-	obstacles[2].FreshSpeed = 10;//bird
+	//6.Refresh rate of obstacle "motion"
+	obstacles[0].FreshSpeed = 30;	//SmallCactus
+	obstacles[1].FreshSpeed = 30;	//LargeCactus
+	obstacles[2].FreshSpeed = 10;	//bird
 
-	//************************ 设置开始界面 ****************************
+	//Set the start screen
 	ReFrash = true;
 	loadimage(0, "res/over.png");
 	FlushBatchDraw(); 
 	system("pause");
-	//*************************** 预加载音效 ***************************
+	//Preloaded sound
 	preLoadSound("res/newhit.wav");
 	mciSendString("play res/bg.mp3", 0, 0, 0);
-	//*************************** 初始化分数 ***************************
+	
+	//Initialization score
 	Score = 0;
 }
 
-//创建障碍物
+/*
+	called by ScreRefresh(): 
+	Creates an obstacle after refreshing a certain number of frames
+*/
 void creatObstacle() {
-	int i;
+	int i;	//Obstruction i
 	for (i = 0; i < OBSTACLE_COUNT; i++) {
-		if (obstacles[i].exist == false) {
-			break;	//看看哪种需要创建
+		if (obstacles[i].exist == false){
+			break;
 		}
 	}
 	if (i >= OBSTACLE_COUNT) {
-		return;		//没找到就返回
+		return;
 	}
+	
+	//Set the public attributes of obstacles
 	obstacles[i].exist = true;
 	obstacles[i].hited = false;
 	obstacles[i].ObstacleIndex = 0;
 	obstacles[i].type = (obstacle_type)(rand() % OBSTACLE_TYPE_COUNT);
 	obstacles[i].x = WIN_WIDTH;
-	//自定义障碍物速度
+
+	//Customize obstacle properties: speed, damage, movement, etc
 	if (obstacles[i].type == LargeCactus) {
 		obstacles[i].speed = 4;
 		obstacles[i].Direct_Damage = 15;
@@ -210,14 +198,16 @@ void creatObstacle() {
 	}
 }
 
+
+//called by ScreRefresh(): Collision detection
 void checkHit() {
 	for (int i = 0; i < OBSTACLE_COUNT; i++){
 		DinoState dinoS = { RunState, JumpState, SquatState };
 		if (obstacles[i].exist&& obstacles[i].hited == false) {
-			int a1x, a1y, a2x, a2y;		//恐龙参考点
-			int b1x, b1y, b2x, b2y;		//障碍物参考点
-			int off = 30;				//缩小检测范围 模拟刚体
-			bool* p = (bool *) &dinoS;	//类型统一
+			int a1x, a1y, a2x, a2y;		//Dinosaur reference point
+			int b1x, b1y, b2x, b2y;		//Obstacle reference point
+			int off = 30;				//Narrow the detection range
+			bool* p = (bool *) &dinoS;	//Type unity
 			switch (0)
 			{
 			case 0:
@@ -254,7 +244,7 @@ void checkHit() {
 
 			if (rectIntersect(a1x, a1y, a2x, a2y, b1x, b1y, b2x, b2y)){
 				DinoBlood -= obstacles[i].Direct_Damage;
-				printf("血量剩余 %d\n", DinoBlood);
+				printf("Surplus blood volume %d\n", DinoBlood);
 				playSound("res/newhit.wav");
 				obstacles[i].hited = true;
 			}
@@ -262,26 +252,27 @@ void checkHit() {
 	}
 }
 
-//画面刷新
+
+//called by main(): Refresh the image after the rendering task is complete
 void ScreRefresh() {
-	//背景滑动
+	//Background slide
 	for (int i = 0; i < 3; i++) {
 		bgX[i] -= bgSpeed[i];
 		if (bgX[i] < -WIN_WIDTH) {
 			bgX[i] = 0;
 		}
 	}
-	//恐龙动作控制逻辑
+	//Dinosaur motion control logic
 	if (JumpState){
-		//恐龙跳跃
+		//Dinosaur jump
 		if (DinoY < JumMAXHight){
-			//下移
+			//Move down
 			JumpOffset = 6;
 		}
 		DinoY += JumpOffset;
 
 		if (DinoY > WIN_HIGHT - imgDinoRun[0].getheight() - 10){
-			//到初始底部停止跳跃 && 重置偏移量
+			//Stop jump at bottom && reset offset
 			JumpState = false;
 			JumpOffset = -6;
 		}
@@ -300,7 +291,7 @@ void ScreRefresh() {
 		}
 	}
 	else{
-		//默认跑动状态
+		//Default running state
 		static	int count = 0;
 		count++;
 		if (count >= 4) {
@@ -309,33 +300,17 @@ void ScreRefresh() {
 		}
 	}
 
-	//创建障碍物
-	static int frameCount = 0;	//n次调用刷新页面-ScreRefresh 才创建
+	//Create obstacles
+	static int frameCount = 0;	//n calls to refresh the page -ScreRefresh is created
 	static int BarriFre = 50;
 	frameCount++;
 	if (frameCount > BarriFre){
 		frameCount = 0;
-		BarriFre = 50 + rand() % 50;//随机出现,50~99Fre
-		//********************被优化部分*********************
-		//if (!BarrierExi){
-		//	BarrierExi = true;
-		//	BarriX = WIN_WIDTH;
-		//	BarriFre = 200 + rand()%300;//随机出现
-		//}
-		//***************************************************
+		BarriFre = 50 + rand() % 50;//Random occurrence, 50~99Fre
 		creatObstacle();
 	}
-	//********************被优化部分*********************
-	//barrier run
-	/*if (BarrierExi){
-		BarriX -= Speed[3];
-		if (BarriX < -imgBarrier->getwidth()){
-			BarrierExi = false;
-		}
-	}*/
-	//***************************************************
 	
-	//更新所有障碍物的坐标
+	//Update the coordinates of all obstacles
 	static int freshCount = 0;
 	for (int  i = 0; i < OBSTACLE_COUNT; i++){
 		if (obstacles[i].exist)	{
@@ -352,28 +327,29 @@ void ScreRefresh() {
 		}
 	}
 	freshCount++;
-	//碰撞检测
-	checkHit();
+	checkHit();		//Collision detection
 }
 
-//跳跃启动开关
+
+//called by keyEvent(): Detect keyEvent for dinosaur status updates
 void jump() {
 	JumpState = true;
-	ReFrash = true;		//需要立即刷新
-}
-//下蹲启动开关
-void Squat() {
-	SquatState = true;
-	ReFrash = true;		//需要立即刷新
-	DinoIndex = 0;		//开始下蹲设为0
+	ReFrash = true;		//Need to refresh immediately
 }
 
-//处理用户按键
+//called by keyEvent(): Detect keyEvent for dinosaur status updates
+void Squat() {
+	SquatState = true;
+	ReFrash = true;		//Need to refresh immediately
+	DinoIndex = 0;		//Start squatting to play the 0th picture of the posture
+}
+
+
+//called by main(): Detects the keyEvent
 void keyEvent() {
-	//如何在避免阻塞的情况下进行输入检测
 	char ch;
-	if (_kbhit()){	//有按键按下 返回 true
-		ch = _getch();	//无需按 enter 读取一个字符
+	if (_kbhit()){		//There is a key pressed to return true
+		ch = _getch();	//no press enter to read a character
 		if (ch == 'w') {
 			jump();
 		}
@@ -382,9 +358,11 @@ void keyEvent() {
 		}
 	}
 }
-// 渲染游戏背景
+
+
+//called by main(): Render background movement
 void updateBg() {
-	putimagePNG2(bgX[0], 0, &imgBgs[0]);	//背景001 在x=bgX[0]处
+	putimagePNG2(bgX[0], 0, &imgBgs[0]);	//Background 001 is at x=bgX[0]
 	putimagePNG2(bgX[1], 0, &imgBgs[1]);
 	putimagePNG2(bgX[2], 0, &imgBgs[2]);
 
@@ -393,13 +371,9 @@ void updateBg() {
 	putimagePNG2(bgX[2] + 576, 0, &imgBgs[2]);
 }
 
-//渲染障碍物
+
+//called by main(): Replacement obstacle
 void updateBarrier() {
-	/*被优化部分
-	if (BarrierExi) {
-		putimagePNG2(BarriX, BarriY, &imgBarrier[1]);
-	}*/
-	
 	for (int i = 0; i < OBSTACLE_COUNT; i++){
 		if (obstacles[i].exist) {
 			putimagePNG2(obstacles[i].x, obstacles[i].y, WIN_WIDTH, 
@@ -408,23 +382,27 @@ void updateBarrier() {
 	}
 }
 
-//渲染恐龙
+
+//called by main(): Render dinosaur
 void updateDinosaur() {
 	if (!SquatState){
 		putimagePNG2(DinoX, DinoY, &imgDinoRun[DinoIndex]);
 	}else{
-		//下蹲更新时：屏幕高度-当前图像的高度
+		//When squatting update: Screen height - The height of the current image
 		int y = WIN_HIGHT - (imgDinoSquat[DinoIndex]).getheight();
 		putimagePNG2(DinoX, y, &imgDinoSquat[DinoIndex]);
 	}
 	
 }
 
-//渲染血条
+
+//called by main(): Call API to render blood bar
 void updateBloodBar() {
 	drawBloodBar(10, 10, 200, 10, 2, BLUE, DARKGRAY, RED, DinoBlood / 100.0);
 }
 
+
+//called by main()
 void checkGameOver() {
 	if (DinoBlood <= 0) {
 		loadimage(0, "res/over.png");
@@ -433,7 +411,7 @@ void checkGameOver() {
 		mciSendString("stop res/bg.mp3", 0, 0, 0);
 		system("pause");
 
-		//暂停之后，复活 or 重来
+		//After a pause, revive or restart
 		DinoBlood = 100;
 		mciSendString("play res/bg.mp3", 0, 0, 0);
 		
@@ -442,6 +420,8 @@ void checkGameOver() {
 	}
 }
 
+
+//called by main()
 void checkScore(int time) {
 	if (time > 5){
 		Score = Score + 1;
@@ -449,6 +429,8 @@ void checkScore(int time) {
 	}
 }
 
+
+//called by main()
 int checAndsetTime(int time) {
 	if (!gameState){
 		return 0;
@@ -457,29 +439,25 @@ int checAndsetTime(int time) {
 
 int main(void) {
 	init();
-	static int gameTime = 0;		//计时积分
-	time_t start = time(nullptr);	//计时积分
+	static int gameTime = 0;		//Timing integral
+	time_t start = time(nullptr);
 	int timer = 0;
 	while (1){
-		//keyEvent && timer 双唤醒
+		//keyEvent && timer Double wake up
 		keyEvent();
 
 		timer += getDelay();
-		if (timer > 30)	{		//30ms 刷新
+		if (timer > 30)	{		//30ms refresh
 			timer = 0;
 			ReFrash = true;
 		}
 		if (ReFrash){
-			BeginBatchDraw();	//缓存 解决频闪
+			BeginBatchDraw();	//Cache, stroboscopic resolution
 			updateBg();
-			/*4.19.10:47优化：
-				putimagePNG2(DinoX, DinoY, &DinoRun[DinoIndex]);
-				解决方案：`updateDinosaur();`
-			*/
 			updateDinosaur();
 			updateBarrier();
 			updateBloodBar();
-			FlushBatchDraw();	//flush 解决频闪
+			FlushBatchDraw();	//flush Stroboscopic resolution
 			ScreRefresh();
 
 			checkGameOver();
