@@ -9,6 +9,7 @@
 #pragma comment(lib, "winmm.lib")
 using namespace std;
 
+#define WIN_SCORE 10
 #define WIN_WIDTH 576			//Game window width
 #define WIN_HIGHT 324			//Game window length
 #define OBSTACLE_COUNT 10		//Type of obstacle
@@ -16,7 +17,7 @@ using namespace std;
 bool gameState;
 IMAGE imgBgs[4];				//Global background image
 int bgX[4];						//Background x coordinates
-int bgSpeed[3] = { 1, 2, 4};	//Background velocity
+int bgSpeed[4] = { 1, 2, 4, 5};	//Background velocity
 
 
 typedef struct {		//Dinos' Special state
@@ -62,41 +63,44 @@ typedef struct obstacle{
 	int Direct_Damage;
 	int FreshSpeed;
 	bool exist;
-	bool hited;			//hit state	
+	bool hited;			//hit state
+	bool passed;
 }obstacle_t;
 obstacle_t obstacles[OBSTACLE_COUNT]; 
+
+IMAGE imgSZ[10];
 
 
 //called by main(): Initial load
 void init() {
 	//Build game window
-	initgraph(WIN_WIDTH, WIN_HIGHT, EX_SHOWCONSOLE);
+	initgraph(WIN_WIDTH, WIN_HIGHT);	//option: EX_SHOWCONSOLE
 	gameState = true;
 
 	//Load game background resources
 	char name[64];
 	for (int i = 0; i < 4; i++){
-		sprintf(name, "res/bg%03d.png", i + 1);
+		sprintf(name, "res/img/bg%03d.png", i + 1);
 		loadimage(&imgBgs[i], name);
 		bgX[i] = 0;
 	}
 	//Loading Dinosaur material - Run
 	for (int i = 0; i < 2; i++){
-		sprintf(name, "res/DinoRun%01d.png", i + 1);
+		sprintf(name, "res/img/DinoRun%01d.png", i + 1);
 		loadimage(&imgDinoRun[i], name);
 	}
 	//Loading Dinosaur material - Jump
-	loadimage(&imgDinoJump, "res/DinoJump.png");
+	loadimage(&imgDinoJump, "res/img/DinoJump.png");
 	JumMAXHight = WIN_HIGHT - imgDinoRun[0].getheight() - 10 - 100;
 	JumpOffset = -6;
 
 	//Loading Dinosaur material - Squat
-	loadimage(&imgDinoSquat[0], "res/DinoSquat1.png");
-	loadimage(&imgDinoSquat[1], "res/DinoSquat2.png");
+	loadimage(&imgDinoSquat[0], "res/img/DinoSquat1.png");
+	loadimage(&imgDinoSquat[1], "res/img/DinoSquat2.png");
 	
 	//Dinosaur initial position parameters
 	DinoX = WIN_WIDTH / 2 - imgDinoRun[0].getwidth() / 2;
-	DinoY = WIN_HIGHT     - imgDinoRun[0].getheight() - 5;
+	DinoY = WIN_HIGHT     - imgDinoRun[0].getheight() - 15;
 	DinoIndex = 0;
 
 	//Initialize the dinosaur state
@@ -112,14 +116,14 @@ void init() {
 	vector<IMAGE> imgSmallCactusArrary;
 	IMAGE imgCactus;
 	for (int i = 0; i < 3; i++) {
-		sprintf(name, "res/SmallCactus%01d.png", i + 1);
+		sprintf(name, "res/img/SmallCactus%01d.png", i + 1);
 		loadimage(&imgCactus, name);
 		imgSmallCactusArrary.push_back(imgCactus);
 	}
 	//2.Load obstacles - Big cactus
 	vector<IMAGE> imgLargeCactusArrary;
 	for (int i = 0; i < 3; i++) {
-		sprintf(name, "res/LargeCactus%01d.png", i + 1);
+		sprintf(name, "res/img/LargeCactus%01d.png", i + 1);
 		loadimage(&imgCactus, name);
 		imgLargeCactusArrary.push_back(imgCactus);
 	}
@@ -127,7 +131,7 @@ void init() {
 	vector<IMAGE> imgBirdArrary;
 	IMAGE imgBird;
 	for (int i = 0; i < 2; i++) {
-		sprintf(name, "res/Bird%01d.png", i + 1);
+		sprintf(name, "res/img/Bird%01d.png", i + 1);
 		loadimage(&imgBird, name);
 		imgBirdArrary.push_back(imgBird);
 	}
@@ -146,16 +150,23 @@ void init() {
 	obstacles[2].FreshSpeed = 10;	//bird
 
 	//Set the start screen
+	mciSendString("play res/music/startM.mp3", 0, 0, 0); // play res / bg.mp3
 	ReFrash = true;
-	loadimage(0, "res/over.png");
+	loadimage(0, "res/img/start2.png");
 	FlushBatchDraw(); 
 	system("pause");
+	mciSendString("play res/music/bg.mp3", 0, 0, 0); // play res / bg.mp3
 	//Preloaded sound
-	preLoadSound("res/newhit.wav");
-	mciSendString("play res/bg.mp3", 0, 0, 0);
+	preLoadSound("res/music/newhit.wav");
 	
 	//Initialization score
 	Score = 0;
+
+	//load score img
+	for (int  i = 0; i < 10; i++){
+		sprintf(name, "res/score/%d.png", i);
+		loadimage(&imgSZ[i], name);
+	}
 }
 
 /*
@@ -182,20 +193,22 @@ void creatObstacle() {
 
 	//Customize obstacle properties: speed, damage, movement, etc
 	if (obstacles[i].type == LargeCactus) {
-		obstacles[i].speed = 4;
+		obstacles[i].speed = 1;
 		obstacles[i].Direct_Damage = 15;
-		obstacles[i].y = 310 + 5 - (obstacleImages[obstacles[i].type][0]).getheight();
+		obstacles[i].y = 322 - (obstacleImages[LargeCactus][0]).getheight();
 	}
 	else if (obstacles[i].type == SmallCactus) {
-		obstacles[i].speed = 5;
+		obstacles[i].speed = 1;
 		obstacles[i].Direct_Damage = 10;
-		obstacles[i].y = 310 + 5 - (obstacleImages[obstacles[i].type][0]).getheight();
+		obstacles[i].y = 312 - (obstacleImages[SmallCactus][0]).getheight();
 	}
 	else if (obstacles[i].type == Bird) {
 		obstacles[i].speed = 6;
 		obstacles[i].Direct_Damage = 20;
-		obstacles[i].y = 280 + 5 - (obstacleImages[obstacles[i].type][0]).getheight();
+		obstacles[i].y = 260 - (obstacleImages[Bird][0]).getheight();
 	}
+
+	obstacles[i].passed = false;
 }
 
 
@@ -245,7 +258,7 @@ void checkHit() {
 			if (rectIntersect(a1x, a1y, a2x, a2y, b1x, b1y, b2x, b2y)){
 				DinoBlood -= obstacles[i].Direct_Damage;
 				printf("Surplus blood volume %d\n", DinoBlood);
-				playSound("res/newhit.wav");
+				playSound("res/music/newhit.wav");
 				obstacles[i].hited = true;
 			}
 		}
@@ -256,7 +269,7 @@ void checkHit() {
 //called by main(): Refresh the image after the rendering task is complete
 void ScreRefresh() {
 	//Background slide
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 4; i++) {
 		bgX[i] -= bgSpeed[i];
 		if (bgX[i] < -WIN_WIDTH) {
 			bgX[i] = 0;
@@ -322,7 +335,10 @@ void ScreRefresh() {
 			int len = obstacleImages[obstacles[i].type].size();
 			if (freshCount > obstacles[obstacles[i].type].FreshSpeed){
 				freshCount = 0;
-				obstacles[i].ObstacleIndex = (obstacles[i].ObstacleIndex + 1) % len;
+				if (obstacles[i].type == Bird)
+				{
+					obstacles[i].ObstacleIndex = (obstacles[i].ObstacleIndex + 1) % len;
+				}
 			}
 		}
 	}
@@ -365,17 +381,23 @@ void updateBg() {
 	putimagePNG2(bgX[0], 0, &imgBgs[0]);	//Background 001 is at x=bgX[0]
 	putimagePNG2(bgX[1], 0, &imgBgs[1]);
 	putimagePNG2(bgX[2], 0, &imgBgs[2]);
+	putimagePNG2(bgX[3], 380, &imgBgs[3]);
 
 	putimagePNG2(bgX[0] + 576, 0, &imgBgs[0]);
 	putimagePNG2(bgX[1] + 576, 0, &imgBgs[1]);
 	putimagePNG2(bgX[2] + 576, 0, &imgBgs[2]);
+	putimagePNG2(bgX[3] + 576, 275, &imgBgs[3]);
 }
 
 
-//called by main(): Replacement obstacle
+//called by main(): Render obstacle
 void updateBarrier() {
 	for (int i = 0; i < OBSTACLE_COUNT; i++){
-		if (obstacles[i].exist) {
+		if (obstacles[i].type != Bird && obstacles[i].exist)		{
+			putimagePNG2(obstacles[i].x, obstacles[i].y, WIN_WIDTH,
+				&obstacleImages[obstacles[i].type][obstacles[i].ObstacleIndex]);
+		}
+		else if (obstacles[i].type == Bird && obstacles[i].exist) {
 			putimagePNG2(obstacles[i].x, obstacles[i].y, WIN_WIDTH, 
 				&obstacleImages[obstacles[i].type][obstacles[i].ObstacleIndex]);
 		}
@@ -396,7 +418,7 @@ void updateDinosaur() {
 }
 
 
-//called by main(): Call API to render blood bar
+//called by main(): Render blood bar by API
 void updateBloodBar() {
 	drawBloodBar(10, 10, 200, 10, 2, BLUE, DARKGRAY, RED, DinoBlood / 100.0);
 }
@@ -405,15 +427,26 @@ void updateBloodBar() {
 //called by main()
 void checkGameOver() {
 	if (DinoBlood <= 0) {
-		loadimage(0, "res/over.png");
-		loadimage(0, "res/GameOver.png");
-		FlushBatchDraw();
-		mciSendString("stop res/bg.mp3", 0, 0, 0);
+		mciSendString("stop res/music/bg.mp3", 0, 0, 0);
+		mciSendString("stop res/music/false.mp3", 0, 0, 0);
+		Sleep(3);
+		mciSendString("play res/music/lose.wav", 0, 0, 0);
+		int offset = 5;
+		IMAGE img;
+		loadimage(&img, "res/img/false1.png");
+		for (int i = 0; i < 250; i++){
+			putimagePNG2(10 + offset, 5 + offset, &img);
+			FlushBatchDraw();
+			offset = -offset;
+			Sleep(50);
+		}
 		system("pause");
 
 		//After a pause, revive or restart
 		DinoBlood = 100;
-		mciSendString("play res/bg.mp3", 0, 0, 0);
+		mciSendString("stop res/music/lose.wav", 0, 0, 0);
+
+		mciSendString("play res/music/bg.mp3", 0, 0, 0);
 		
 		gameState = false;
 		Score = 0;
@@ -422,25 +455,53 @@ void checkGameOver() {
 
 
 //called by main()
-void checkScore(int time) {
-	if (time > 5){
-		Score = Score + 1;
-		printf("score: %d\n", Score);
+void checkScore() {
+	for (int i = 0; i < OBSTACLE_COUNT; i++) {
+		if (obstacles[i].exist &&
+			obstacles[i].passed == false &&
+			obstacles[i].hited == false &&
+			obstacles[i].x + obstacleImages[obstacles[i].type][0].getwidth() < DinoX) {
+			Score++;
+			obstacles[i].passed = true;
+			printf("score is %d\n", Score);
+		}
+
 	}
 }
 
+void updateScore() {
+	char str[8];
+	sprintf(str, "%d", Score);
 
-//called by main()
-int checAndsetTime(int time) {
-	if (!gameState){
-		return 0;
+	int x = 230;
+	int y = 2;
+
+	for (int i = 0; str[i]; i++) {
+		int sz = str[i] - '0';
+		putimagePNG2(x, y, &imgSZ[sz]);
+		x += imgSZ[sz].getwidth() + 5;
+	}
+}
+
+void checkWin() {
+	FlushBatchDraw();
+	if (Score >= WIN_SCORE){
+		mciSendString("play res/music/Âó¿Ë°¢Éª.mp3", 0, 0, 0); // play res / bg.mp3
+		Sleep(2000);
+		loadimage(0, "res/img/win.png");
+		FlushBatchDraw();
+		mciSendString("stop res/music/bg.mp3", 0, 0, 0);
+		mciSendString("play res/music/win2.mp3", 0, 0, 0);
+		system("pause");
+		mciSendString("play res/music/bg.mp3", 0, 0, 0);
+		DinoBlood = 100;
+		Score = 0;
 	}
 }
 
 int main(void) {
 	init();
-	static int gameTime = 0;		//Timing integral
-	time_t start = time(nullptr);
+
 	int timer = 0;
 	while (1){
 		//keyEvent && timer Double wake up
@@ -452,20 +513,19 @@ int main(void) {
 			ReFrash = true;
 		}
 		if (ReFrash){
+			ScreRefresh();
 			BeginBatchDraw();	//Cache, stroboscopic resolution
 			updateBg();
 			updateDinosaur();
 			updateBarrier();
 			updateBloodBar();
+			updateScore();
+			checkWin();
 			FlushBatchDraw();	//flush Stroboscopic resolution
-			ScreRefresh();
 
 			checkGameOver();
-			time_t end = time(nullptr);
-			gameTime = difftime(end, start);
-			checkScore(gameTime);
+			checkScore();
 
-			gameTime = checAndsetTime(gameTime);
 			ReFrash = false;
 		}
 		//Sleep(30);
